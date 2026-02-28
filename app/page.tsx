@@ -98,7 +98,7 @@ function HomeContent() {
               </p>
             </div>
 
-            <Card>
+            <Card className="relative z-10">
               <CardHeader>
                 <CardTitle>Generate Your Learning Path</CardTitle>
                 <CardDescription>

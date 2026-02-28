@@ -249,7 +249,7 @@ export default function PathGenerationForm({
       {/* Submit Button */}
       <Button
         type="submit"
-        className="w-full"
+        className="w-full relative z-10"
         disabled={isGenerating}
         size="lg"
       >

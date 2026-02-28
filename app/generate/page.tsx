@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 import { Sparkles } from 'lucide-react';
 
 const PHASES = [
@@ -14,10 +15,17 @@ const PHASES = [
 
 export default function GeneratePage() {
   const router = useRouter();
+  const { user } = useAuth();
+  const userRef = useRef(user);
   const [phase, setPhase] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [dots, setDots] = useState('');
   const hasStarted = useRef(false);
+
+  // Keep userRef in sync with latest user state
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   // Animate the dots
   useEffect(() => {
@@ -58,9 +66,38 @@ export default function GeneratePage() {
         const result = await response.json();
 
         if (result.success) {
-          const pathId = `path-${Date.now()}`;
-          localStorage.setItem(pathId, JSON.stringify(result.data));
+          const generatedData = result.data;
           sessionStorage.removeItem('generate-request');
+
+          // Save to database if user is logged in
+          const currentUser = userRef.current;
+          if (currentUser?.id) {
+            try {
+              const saveResponse = await fetch('/api/paths/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  userId: currentUser.id,
+                  pathData: {
+                    ...generatedData,
+                    topic: data.topic || generatedData.title,
+                  },
+                }),
+              });
+              const saveResult = await saveResponse.json();
+
+              if (saveResult.success) {
+                router.replace(`/path/${saveResult.data.pathId}`);
+                return;
+              }
+            } catch (saveErr) {
+              console.error('Error saving path to database:', saveErr);
+            }
+          }
+
+          // Fallback to localStorage if not logged in or save failed
+          const pathId = `path-${Date.now()}`;
+          localStorage.setItem(pathId, JSON.stringify(generatedData));
           router.replace(`/path/${pathId}`);
         } else {
           setError(result.error || 'Failed to generate learning path');
