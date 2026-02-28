@@ -196,7 +196,7 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-gradient-to-br from-violet-50 via-white to-cyan-50">
       {/* Header */}
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 py-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard')}>
@@ -232,7 +232,7 @@ export default function ProfilePage() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Profile header card */}
         <Card className="mb-8 overflow-hidden">
           <div className="h-24 bg-gradient-to-r from-violet-600 via-purple-600 to-cyan-500" />

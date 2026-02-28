@@ -210,7 +210,7 @@ export async function generateLearningPath(
 
     // Use beta API with web search for finding current resources
     const message = await anthropic.beta.messages.create({
-      model: 'claude-sonnet-4-5-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 16000,
       temperature: 1,
       messages: [

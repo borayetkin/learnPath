@@ -79,6 +79,7 @@ The score should be 0.0-1.0 representing recommendation confidence.`;
       model: 'claude-haiku-4-5-20251001', // Use Haiku for cost efficiency
       max_tokens: 2048,
       temperature: 0.7,
+      system: 'You are a JSON API. You MUST respond with ONLY a valid JSON array. No explanations, no markdown, no text before or after the JSON. Just the raw JSON array.',
       messages: [
         {
           role: 'user',
@@ -96,9 +97,15 @@ The score should be 0.0-1.0 representing recommendation confidence.`;
 
     // Remove markdown code blocks if present
     if (jsonText.startsWith('```json')) {
-      jsonText = jsonText.replace(/^```json\n/, '').replace(/\n```$/, '');
+      jsonText = jsonText.replace(/^```json\n?/, '').replace(/\n?```$/, '');
     } else if (jsonText.startsWith('```')) {
-      jsonText = jsonText.replace(/^```\n/, '').replace(/\n```$/, '');
+      jsonText = jsonText.replace(/^```\n?/, '').replace(/\n?```$/, '');
+    }
+
+    // Extract JSON array if there's surrounding text
+    const jsonMatch = jsonText.match(/\[[\s\S]*\]/);
+    if (jsonMatch) {
+      jsonText = jsonMatch[0];
     }
 
     const recommendations: RecommendationResult[] = JSON.parse(jsonText);
