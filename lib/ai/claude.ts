@@ -138,6 +138,37 @@ export async function generateLearningPath(
 
     const parsed = JSON.parse(jsonText);
 
+    // Replace simple node IDs (e.g. "node-1") with real UUIDs
+    if (parsed.nodes && Array.isArray(parsed.nodes)) {
+      const idMap = new Map<string, string>();
+      for (const node of parsed.nodes) {
+        if (node.id && !node.id.match(/^[0-9a-f]{8}-/)) {
+          const uuid = crypto.randomUUID();
+          idMap.set(node.id, uuid);
+          node.id = uuid;
+        }
+      }
+      // Update prerequisites and edges to use the new UUIDs
+      for (const node of parsed.nodes) {
+        if (node.prerequisites && Array.isArray(node.prerequisites)) {
+          node.prerequisites = node.prerequisites.map(
+            (p: string) => idMap.get(p) ?? p
+          );
+        }
+      }
+      if (parsed.edges && Array.isArray(parsed.edges)) {
+        for (const edge of parsed.edges) {
+          if (edge.from) edge.from = idMap.get(edge.from) ?? edge.from;
+          if (edge.to) edge.to = idMap.get(edge.to) ?? edge.to;
+        }
+      }
+      if (parsed.milestones && Array.isArray(parsed.milestones)) {
+        for (const m of parsed.milestones) {
+          if (m.afterNode) m.afterNode = idMap.get(m.afterNode) ?? m.afterNode;
+        }
+      }
+    }
+
     // Validate the response against our schema
     const validated = AIPathGenerationResponseSchema.parse(parsed);
 
