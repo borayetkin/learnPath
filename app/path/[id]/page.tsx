@@ -2,47 +2,180 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 import MilestoneMap from '@/components/MilestoneMap';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Sparkles, ArrowLeft, Share2, Trophy } from 'lucide-react';
-import { LearningNode as LearningNodeType, NodeStatus, AIPathGenerationResponse } from '@/types';
+import { LearningNode as LearningNodeType, GraphEdge, NodeStatus, AIPathGenerationResponse } from '@/types';
+
+// Transform snake_case DB row to camelCase LearningNode type
+function transformNode(dbNode: any): LearningNodeType {
+  const parseJsonField = (field: any): string[] => {
+    if (!field) return [];
+    if (Array.isArray(field)) return field;
+    if (typeof field === 'string') {
+      try { return JSON.parse(field); } catch { return []; }
+    }
+    return [];
+  };
+
+  return {
+    id: dbNode.id,
+    pathId: dbNode.path_id,
+    title: dbNode.title,
+    description: dbNode.description || undefined,
+    nodeType: dbNode.node_type || 'concept',
+    difficulty: dbNode.difficulty || 1,
+    estimatedHours: dbNode.estimated_hours || 1,
+    orderIndex: dbNode.order_index,
+    positionX: dbNode.position_x,
+    positionY: dbNode.position_y,
+    prerequisites: parseJsonField(dbNode.prerequisites),
+    resources: (dbNode.resources || []).map((r: any) => ({
+      id: r.id,
+      nodeId: r.node_id,
+      title: r.title,
+      url: r.url,
+      resourceType: r.resource_type || 'article',
+      platform: r.platform || undefined,
+      isFree: r.is_free ?? true,
+      estimatedDuration: r.estimated_duration || undefined,
+      difficultyLevel: r.difficulty_level || undefined,
+      description: r.description || undefined,
+    })),
+    keyTakeaways: parseJsonField(dbNode.key_takeaways),
+    practicalExercises: parseJsonField(dbNode.practical_exercises),
+  };
+}
+
+// Build edges from node prerequisites
+function buildEdges(nodes: LearningNodeType[]): GraphEdge[] {
+  const edges: GraphEdge[] = [];
+  for (const node of nodes) {
+    if (node.prerequisites && node.id) {
+      for (const prereqId of node.prerequisites) {
+        edges.push({ from: prereqId, to: node.id, type: 'prerequisite' });
+      }
+    }
+  }
+  return edges;
+}
 
 export default function PathViewerPage() {
   const params = useParams();
   const router = useRouter();
+  const { user } = useAuth();
   const pathId = params.id as string;
 
   const [pathData, setPathData] = useState<AIPathGenerationResponse | null>(null);
   const [progress, setProgress] = useState<Record<string, NodeStatus>>({});
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Load path data from localStorage (in a real app, this would come from the database)
-    const stored = localStorage.getItem(pathId);
-    if (stored) {
-      const data = JSON.parse(stored);
-      setPathData(data);
-    }
+    const fetchPath = async () => {
+      try {
+        // First try the API (database)
+        const response = await fetch(`/api/paths/${pathId}`);
+        const result = await response.json();
 
-    // Load progress from localStorage
-    const storedProgress = localStorage.getItem(`${pathId}-progress`);
-    if (storedProgress) {
-      setProgress(JSON.parse(storedProgress));
-    }
-  }, [pathId]);
+        if (result.success && result.data) {
+          const dbPath = result.data;
+          const nodes = (dbPath.nodes || []).map(transformNode);
+          const edges = buildEdges(nodes);
+
+          setPathData({
+            title: dbPath.title,
+            description: dbPath.description || '',
+            estimatedDuration: dbPath.estimated_duration || 0,
+            difficultyLevel: dbPath.difficulty_level || 'beginner',
+            nodes,
+            edges,
+          });
+        } else {
+          // Fallback to localStorage for paths not yet saved to DB
+          const stored = localStorage.getItem(pathId);
+          if (stored) {
+            setPathData(JSON.parse(stored));
+          } else {
+            setError('Learning path not found');
+          }
+        }
+      } catch (err) {
+        // Fallback to localStorage on network error
+        const stored = localStorage.getItem(pathId);
+        if (stored) {
+          setPathData(JSON.parse(stored));
+        } else {
+          setError('Failed to load learning path');
+        }
+      }
+    };
+
+    const fetchProgress = async () => {
+      if (!user?.id) {
+        // Fallback to localStorage progress
+        const storedProgress = localStorage.getItem(`${pathId}-progress`);
+        if (storedProgress) {
+          setProgress(JSON.parse(storedProgress));
+        }
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/progress/${pathId}?userId=${user.id}`);
+        const result = await response.json();
+
+        if (result.success && result.data) {
+          const progressMap: Record<string, NodeStatus> = {};
+          for (const entry of result.data) {
+            progressMap[entry.node_id] = entry.status;
+          }
+          setProgress(progressMap);
+        }
+      } catch {
+        // Fallback to localStorage
+        const storedProgress = localStorage.getItem(`${pathId}-progress`);
+        if (storedProgress) {
+          setProgress(JSON.parse(storedProgress));
+        }
+      }
+    };
+
+    fetchPath();
+    fetchProgress();
+  }, [pathId, user?.id]);
 
   const handleNodeClick = (node: LearningNodeType) => {
     // Scrolling is handled by the milestone map inline expansion
   };
 
-  const handleUpdateStatus = (nodeId: string, status: NodeStatus) => {
+  const handleUpdateStatus = async (nodeId: string, status: NodeStatus) => {
     const newProgress = { ...progress, [nodeId]: status };
     setProgress(newProgress);
 
-    // Save to localStorage
+    // Save to localStorage as immediate backup
     localStorage.setItem(`${pathId}-progress`, JSON.stringify(newProgress));
+
+    // Persist to API if user is logged in
+    if (user?.id) {
+      try {
+        await fetch('/api/progress/node', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: user.id,
+            pathId,
+            nodeId,
+            status,
+          }),
+        });
+      } catch (err) {
+        console.error('Error saving progress:', err);
+      }
+    }
   };
 
   const calculateProgress = () => {
@@ -53,6 +186,17 @@ export default function PathViewerPage() {
     ).length;
     return totalNodes > 0 ? Math.round((completedNodes / totalNodes) * 100) : 0;
   };
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-violet-50 via-white to-cyan-50">
+        <div className="text-center">
+          <p className="text-gray-600 mb-4">{error}</p>
+          <Button onClick={() => router.push('/dashboard')}>Go to Dashboard</Button>
+        </div>
+      </div>
+    );
+  }
 
   if (!pathData) {
     return (
