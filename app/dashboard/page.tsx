@@ -268,6 +268,12 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="flex gap-3">
+            <Link href="/profile">
+              <Button variant="outline" size="sm" className="gap-2">
+                <Target className="w-4 h-4" />
+                Profile
+              </Button>
+            </Link>
             <Link href="/friends">
               <Button variant="outline" size="sm" className="gap-2">
                 <Users className="w-4 h-4" />

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
@@ -36,8 +36,13 @@ export default function AuthPage() {
   const [signupConfirmPassword, setSignupConfirmPassword] = useState('');
 
   // Redirect if already logged in
+  useEffect(() => {
+    if (!isLoading && user) {
+      router.push('/dashboard');
+    }
+  }, [isLoading, user, router]);
+
   if (!isLoading && user) {
-    router.push('/dashboard');
     return null;
   }
 

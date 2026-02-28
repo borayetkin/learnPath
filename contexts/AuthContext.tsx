@@ -53,21 +53,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Sync Supabase Auth user to our users table
+  // Sync Supabase Auth user to our users table via server API (bypasses RLS)
   const syncUserToDatabase = async (user: User) => {
     try {
-      const { error } = await (supabase as any)
-        .from('users')
-        .upsert({
+      const response = await fetch('/api/users/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           id: user.id,
-          email: user.email!,
+          email: user.email,
           name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0],
-        }, {
-          onConflict: 'id',
-        });
+        }),
+      });
 
-      if (error) {
-        console.error('Error syncing user to database:', error);
+      if (!response.ok) {
+        const result = await response.json();
+        console.error('Error syncing user to database:', result.error);
       }
     } catch (error) {
       console.error('Error syncing user:', error);
