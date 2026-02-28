@@ -160,6 +160,7 @@ export async function generateLearningPath(
         for (const edge of parsed.edges) {
           if (edge.from) edge.from = idMap.get(edge.from) ?? edge.from;
           if (edge.to) edge.to = idMap.get(edge.to) ?? edge.to;
+          edge.type = 'prerequisite';
         }
       }
       if (parsed.milestones && Array.isArray(parsed.milestones)) {
