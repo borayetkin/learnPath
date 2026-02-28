@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import MilestoneMap from '@/components/MilestoneMap';
+import HorizontalPathMap from '@/components/HorizontalPathMap';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -258,45 +258,50 @@ export default function PathViewerPage() {
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-6 max-w-4xl">
+      {/* Main Content - Full width */}
+      <main className="py-6">
         {/* Progress summary */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-violet-600">{progressPercentage}%</div>
-              <Progress value={progressPercentage} className="mt-2" />
-              <p className="text-xs text-gray-500 mt-1">Overall</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-green-600">
-                {completedCount}/{pathData.nodes.length}
-              </div>
-              <p className="text-xs text-gray-500 mt-1">Completed</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-amber-600">{inProgressCount}</div>
-              <p className="text-xs text-gray-500 mt-1">In Progress</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold">{pathData.estimatedDuration}h</div>
-              <Badge variant="secondary" className="mt-1 capitalize">
-                {pathData.difficultyLevel}
-              </Badge>
-            </CardContent>
-          </Card>
+        <div className="container mx-auto px-4 max-w-4xl">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <Card>
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-violet-600">{progressPercentage}%</div>
+                <Progress value={progressPercentage} className="mt-2" />
+                <p className="text-xs text-gray-500 mt-1">Overall</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {completedCount}/{pathData.nodes.length}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Completed</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-amber-600">{inProgressCount}</div>
+                <p className="text-xs text-gray-500 mt-1">In Progress</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold">{pathData.estimatedDuration}h</div>
+                <Badge variant="secondary" className="mt-1 capitalize">
+                  {pathData.difficultyLevel}
+                </Badge>
+              </CardContent>
+            </Card>
+          </div>
         </div>
 
-        {/* Milestone Map */}
+        {/* Horizontal Path Map - Full width */}
         <div className="mb-8">
-          <h2 className="text-lg font-semibold mb-4 text-gray-800">Your Learning Journey</h2>
-          <MilestoneMap
+          <div className="container mx-auto px-4 max-w-4xl">
+            <h2 className="text-lg font-semibold mb-2 text-gray-800">Your Learning Journey</h2>
+            <p className="text-sm text-gray-500 mb-4">Click on a node to see details, resources, and exercises</p>
+          </div>
+          <HorizontalPathMap
             nodes={pathData.nodes}
             edges={pathData.edges || []}
             progress={progress}

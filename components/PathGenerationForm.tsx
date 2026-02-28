@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { PathGenerationRequestSchema, PathGenerationRequest, Category } from '@/types';
@@ -18,7 +19,6 @@ import {
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card } from '@/components/ui/card';
-import { toast } from 'sonner';
 
 interface PathGenerationFormProps {
   onGenerate: (data: any) => void;
@@ -31,6 +31,7 @@ export default function PathGenerationForm({
   isGenerating,
   initialCategorySlug,
 }: PathGenerationFormProps) {
+  const router = useRouter();
   const [timeCommitment, setTimeCommitment] = useState(5);
   const [selectedResourceTypes, setSelectedResourceTypes] = useState<string[]>([
     'video',
@@ -94,31 +95,13 @@ export default function PathGenerationForm({
   };
 
   const onSubmit = async (data: PathGenerationRequest) => {
-    try {
-      data.timeCommitment = `${timeCommitment} hours per week`;
-      data.preferredResourceTypes = selectedResourceTypes;
-      data.categorySlug = selectedCategory;
+    data.timeCommitment = `${timeCommitment} hours per week`;
+    data.preferredResourceTypes = selectedResourceTypes;
+    data.categorySlug = selectedCategory;
 
-      const response = await fetch('/api/paths/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        toast.success('Learning path generated successfully!');
-        onGenerate(result.data);
-      } else {
-        toast.error(result.error || 'Failed to generate learning path');
-      }
-    } catch (error) {
-      console.error('Error generating path:', error);
-      toast.error('An error occurred while generating the learning path');
-    }
+    // Store request in sessionStorage and navigate to generation page
+    sessionStorage.setItem('generate-request', JSON.stringify(data));
+    router.push('/generate');
   };
 
   return (
