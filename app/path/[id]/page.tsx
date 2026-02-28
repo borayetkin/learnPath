@@ -2,53 +2,179 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import LearningGraph from '@/components/LearningGraph';
-import NodeDetailPanel from '@/components/NodeDetailPanel';
+import { useAuth } from '@/contexts/AuthContext';
+import HorizontalPathMap from '@/components/HorizontalPathMap';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Sparkles, ArrowLeft, Download, Share2 } from 'lucide-react';
-import { LearningNode as LearningNodeType, NodeStatus, AIPathGenerationResponse } from '@/types';
+import { Sparkles, ArrowLeft, Share2, Trophy } from 'lucide-react';
+import { LearningNode as LearningNodeType, GraphEdge, NodeStatus, AIPathGenerationResponse } from '@/types';
+
+// Transform snake_case DB row to camelCase LearningNode type
+function transformNode(dbNode: any): LearningNodeType {
+  const parseJsonField = (field: any): string[] => {
+    if (!field) return [];
+    if (Array.isArray(field)) return field;
+    if (typeof field === 'string') {
+      try { return JSON.parse(field); } catch { return []; }
+    }
+    return [];
+  };
+
+  return {
+    id: dbNode.id,
+    pathId: dbNode.path_id,
+    title: dbNode.title,
+    description: dbNode.description || undefined,
+    nodeType: dbNode.node_type || 'concept',
+    difficulty: dbNode.difficulty || 1,
+    estimatedHours: dbNode.estimated_hours || 1,
+    orderIndex: dbNode.order_index,
+    positionX: dbNode.position_x,
+    positionY: dbNode.position_y,
+    prerequisites: parseJsonField(dbNode.prerequisites),
+    resources: (dbNode.resources || []).map((r: any) => ({
+      id: r.id,
+      nodeId: r.node_id,
+      title: r.title,
+      url: r.url,
+      resourceType: r.resource_type || 'article',
+      platform: r.platform || undefined,
+      isFree: r.is_free ?? true,
+      estimatedDuration: r.estimated_duration || undefined,
+      difficultyLevel: r.difficulty_level || undefined,
+      description: r.description || undefined,
+    })),
+    keyTakeaways: parseJsonField(dbNode.key_takeaways),
+    practicalExercises: parseJsonField(dbNode.practical_exercises),
+  };
+}
+
+// Build edges from node prerequisites
+function buildEdges(nodes: LearningNodeType[]): GraphEdge[] {
+  const edges: GraphEdge[] = [];
+  for (const node of nodes) {
+    if (node.prerequisites && node.id) {
+      for (const prereqId of node.prerequisites) {
+        edges.push({ from: prereqId, to: node.id, type: 'prerequisite' });
+      }
+    }
+  }
+  return edges;
+}
 
 export default function PathViewerPage() {
   const params = useParams();
   const router = useRouter();
+  const { user } = useAuth();
   const pathId = params.id as string;
 
   const [pathData, setPathData] = useState<AIPathGenerationResponse | null>(null);
-  const [selectedNode, setSelectedNode] = useState<LearningNodeType | null>(null);
   const [progress, setProgress] = useState<Record<string, NodeStatus>>({});
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Load path data from localStorage (in a real app, this would come from the database)
-    const stored = localStorage.getItem(pathId);
-    if (stored) {
-      const data = JSON.parse(stored);
-      setPathData(data);
-    }
+    const fetchPath = async () => {
+      try {
+        // First try the API (database)
+        const response = await fetch(`/api/paths/${pathId}`);
+        const result = await response.json();
 
-    // Load progress from localStorage
-    const storedProgress = localStorage.getItem(`${pathId}-progress`);
-    if (storedProgress) {
-      setProgress(JSON.parse(storedProgress));
-    }
-  }, [pathId]);
+        if (result.success && result.data) {
+          const dbPath = result.data;
+          const nodes = (dbPath.nodes || []).map(transformNode);
+          const edges = buildEdges(nodes);
+
+          setPathData({
+            title: dbPath.title,
+            description: dbPath.description || '',
+            estimatedDuration: dbPath.estimated_duration || 0,
+            difficultyLevel: dbPath.difficulty_level || 'beginner',
+            nodes,
+            edges,
+          });
+        } else {
+          // Fallback to localStorage for paths not yet saved to DB
+          const stored = localStorage.getItem(pathId);
+          if (stored) {
+            setPathData(JSON.parse(stored));
+          } else {
+            setError('Learning path not found');
+          }
+        }
+      } catch (err) {
+        // Fallback to localStorage on network error
+        const stored = localStorage.getItem(pathId);
+        if (stored) {
+          setPathData(JSON.parse(stored));
+        } else {
+          setError('Failed to load learning path');
+        }
+      }
+    };
+
+    const fetchProgress = async () => {
+      if (!user?.id) {
+        // Fallback to localStorage progress
+        const storedProgress = localStorage.getItem(`${pathId}-progress`);
+        if (storedProgress) {
+          setProgress(JSON.parse(storedProgress));
+        }
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/progress/${pathId}?userId=${user.id}`);
+        const result = await response.json();
+
+        if (result.success && result.data) {
+          const progressMap: Record<string, NodeStatus> = {};
+          for (const entry of result.data) {
+            progressMap[entry.node_id] = entry.status;
+          }
+          setProgress(progressMap);
+        }
+      } catch {
+        // Fallback to localStorage
+        const storedProgress = localStorage.getItem(`${pathId}-progress`);
+        if (storedProgress) {
+          setProgress(JSON.parse(storedProgress));
+        }
+      }
+    };
+
+    fetchPath();
+    fetchProgress();
+  }, [pathId, user?.id]);
 
   const handleNodeClick = (node: LearningNodeType) => {
-    setSelectedNode(node);
+    // Scrolling is handled by the milestone map inline expansion
   };
 
-  const handleUpdateStatus = (nodeId: string, status: NodeStatus) => {
+  const handleUpdateStatus = async (nodeId: string, status: NodeStatus) => {
     const newProgress = { ...progress, [nodeId]: status };
     setProgress(newProgress);
 
-    // Save to localStorage
+    // Save to localStorage as immediate backup
     localStorage.setItem(`${pathId}-progress`, JSON.stringify(newProgress));
 
-    // Update the selected node if it's currently selected
-    if (selectedNode?.id === nodeId) {
-      setSelectedNode({ ...selectedNode });
+    // Persist to API if user is logged in
+    if (user?.id) {
+      try {
+        await fetch('/api/progress/node', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: user.id,
+            pathId,
+            nodeId,
+            status,
+          }),
+        });
+      } catch (err) {
+        console.error('Error saving progress:', err);
+      }
     }
   };
 
@@ -56,17 +182,28 @@ export default function PathViewerPage() {
     if (!pathData) return 0;
     const totalNodes = pathData.nodes.length;
     const completedNodes = Object.values(progress).filter(
-      (status) => status === 'completed'
+      (s) => s === 'completed'
     ).length;
     return totalNodes > 0 ? Math.round((completedNodes / totalNodes) * 100) : 0;
   };
 
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-violet-50 via-white to-cyan-50">
+        <div className="text-center">
+          <p className="text-gray-600 mb-4">{error}</p>
+          <Button onClick={() => router.push('/dashboard')}>Go to Dashboard</Button>
+        </div>
+      </div>
+    );
+  }
+
   if (!pathData) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-violet-50 via-white to-cyan-50">
         <div className="text-center">
-          <h2 className="text-2xl font-bold mb-2">Loading...</h2>
-          <p className="text-gray-600">Loading your learning path</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-600 mx-auto mb-4" />
+          <p className="text-gray-600">Loading your learning path...</p>
         </div>
       </div>
     );
@@ -74,29 +211,38 @@ export default function PathViewerPage() {
 
   const progressPercentage = calculateProgress();
   const completedCount = Object.values(progress).filter(
-    (status) => status === 'completed'
+    (s) => s === 'completed'
   ).length;
   const inProgressCount = Object.values(progress).filter(
-    (status) => status === 'in_progress'
+    (s) => s === 'in_progress'
   ).length;
+  const allCompleted = completedCount === pathData.nodes.length && pathData.nodes.length > 0;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-violet-50 via-white to-cyan-50">
       {/* Header */}
-      <header className="border-b bg-white sticky top-0 z-10 shadow-sm">
+      <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" onClick={() => router.push('/')}>
+              <Button variant="ghost" size="icon" onClick={() => router.back()}>
                 <ArrowLeft className="w-5 h-5" />
               </Button>
               <div>
                 <div className="flex items-center gap-2">
-                  <Sparkles className="w-6 h-6 text-blue-600" />
+                  <div className="w-8 h-8 bg-gradient-to-br from-violet-600 to-cyan-500 rounded-lg flex items-center justify-center">
+                    <Sparkles className="w-5 h-5 text-white" />
+                  </div>
                   <h1 className="text-xl font-bold">{pathData.title}</h1>
+                  {allCompleted && (
+                    <Badge className="bg-yellow-500 text-white">
+                      <Trophy className="w-3 h-3 mr-1" />
+                      Completed
+                    </Badge>
+                  )}
                 </div>
                 {pathData.description && (
-                  <p className="text-sm text-gray-600 mt-1">
+                  <p className="text-sm text-gray-600 mt-1 max-w-xl line-clamp-1">
                     {pathData.description}
                   </p>
                 )}
@@ -107,131 +253,63 @@ export default function PathViewerPage() {
                 <Share2 className="w-4 h-4 mr-2" />
                 Share
               </Button>
-              <Button variant="outline" size="sm">
-                <Download className="w-4 h-4 mr-2" />
-                Export
-              </Button>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-6">
-        <div className="grid lg:grid-cols-4 gap-6 mb-6">
-          {/* Stats Cards */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-gray-600">
-                Progress
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{progressPercentage}%</div>
-              <Progress value={progressPercentage} className="mt-2" />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-gray-600">
-                Completed
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                {completedCount}/{pathData.nodes.length}
-              </div>
-              <p className="text-xs text-gray-500 mt-1">nodes completed</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-gray-600">
-                In Progress
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-yellow-600">
-                {inProgressCount}
-              </div>
-              <p className="text-xs text-gray-500 mt-1">nodes in progress</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-gray-600">
-                Duration
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{pathData.estimatedDuration}h</div>
-              <Badge variant="secondary" className="mt-1">
-                {pathData.difficultyLevel}
-              </Badge>
-            </CardContent>
-          </Card>
+      {/* Main Content - Full width */}
+      <main className="py-6">
+        {/* Progress summary */}
+        <div className="container mx-auto px-4 max-w-4xl">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <Card>
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-violet-600">{progressPercentage}%</div>
+                <Progress value={progressPercentage} className="mt-2" />
+                <p className="text-xs text-gray-500 mt-1">Overall</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {completedCount}/{pathData.nodes.length}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Completed</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-amber-600">{inProgressCount}</div>
+                <p className="text-xs text-gray-500 mt-1">In Progress</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold">{pathData.estimatedDuration}h</div>
+                <Badge variant="secondary" className="mt-1 capitalize">
+                  {pathData.difficultyLevel}
+                </Badge>
+              </CardContent>
+            </Card>
+          </div>
         </div>
 
-        {/* Learning Graph */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Learning Path Visualization</CardTitle>
-            <p className="text-sm text-gray-600">
-              Click on any node to view details and resources
-            </p>
-          </CardHeader>
-          <CardContent>
-            <LearningGraph
-              nodes={pathData.nodes}
-              edges={pathData.edges || []}
-              progress={progress}
-              onNodeClick={handleNodeClick}
-            />
-          </CardContent>
-        </Card>
-
-        {/* Milestones */}
-        {pathData.milestones && pathData.milestones.length > 0 && (
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle>Milestones</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {pathData.milestones.map((milestone, index) => (
-                  <div
-                    key={index}
-                    className="flex items-start gap-3 p-3 rounded-lg bg-gray-50"
-                  >
-                    <div className="p-2 rounded-full bg-purple-100">
-                      <Sparkles className="w-4 h-4 text-purple-600" />
-                    </div>
-                    <div>
-                      <p className="font-medium">After: {milestone.afterNode}</p>
-                      <p className="text-sm text-gray-600">
-                        {milestone.description}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {/* Horizontal Path Map - Full width */}
+        <div className="mb-8">
+          <div className="container mx-auto px-4 max-w-4xl">
+            <h2 className="text-lg font-semibold mb-2 text-gray-800">Your Learning Journey</h2>
+            <p className="text-sm text-gray-500 mb-4">Click on a node to see details, resources, and exercises</p>
+          </div>
+          <HorizontalPathMap
+            nodes={pathData.nodes}
+            edges={pathData.edges || []}
+            progress={progress}
+            onUpdateStatus={handleUpdateStatus}
+            onNodeClick={handleNodeClick}
+          />
+        </div>
       </main>
-
-      {/* Node Detail Panel */}
-      {selectedNode && (
-        <NodeDetailPanel
-          node={selectedNode}
-          status={progress[selectedNode.id!] || 'not_started'}
-          onClose={() => setSelectedNode(null)}
-          onUpdateStatus={handleUpdateStatus}
-        />
-      )}
     </div>
   );
 }

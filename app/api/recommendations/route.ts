@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
 
         // Get user's most active categories
         const completedCategories = completedPaths?.map((p: any) => p.category_id).filter(Boolean) || [];
-        const categoryPreferences = [...new Set(completedCategories)];
+        const categoryPreferences: string[] = [...new Set(completedCategories as string[])];
 
         // Get available public paths that user hasn't started
         const userPathIds = [

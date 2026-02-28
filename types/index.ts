@@ -219,6 +219,8 @@ export interface Database {
           id: string;
           email: string;
           name: string | null;
+          avatar_url: string | null;
+          bio: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -226,6 +228,8 @@ export interface Database {
           id?: string;
           email: string;
           name?: string | null;
+          avatar_url?: string | null;
+          bio?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -233,6 +237,8 @@ export interface Database {
           id?: string;
           email?: string;
           name?: string | null;
+          avatar_url?: string | null;
+          bio?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -450,6 +456,35 @@ export interface Database {
           time_spent?: number | null;
           created_at?: string;
           updated_at?: string;
+        };
+      };
+      user_badges: {
+        Row: {
+          id: string;
+          user_id: string;
+          path_id: string;
+          badge_name: string;
+          badge_icon: string;
+          badge_color: string;
+          earned_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          path_id: string;
+          badge_name: string;
+          badge_icon?: string;
+          badge_color?: string;
+          earned_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          path_id?: string;
+          badge_name?: string;
+          badge_icon?: string;
+          badge_color?: string;
+          earned_at?: string;
         };
       };
       resource_interactions: {
