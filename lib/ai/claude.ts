@@ -210,7 +210,7 @@ export async function generateLearningPath(
 
     // Use beta API with web search for finding current resources
     const message = await anthropic.beta.messages.create({
-      model: 'claude-sonnet-4-5-20250929',
+      model: 'claude-sonnet-4-5-20250514',
       max_tokens: 16000,
       temperature: 1,
       messages: [
@@ -308,7 +308,7 @@ Return JSON:
 }`;
 
     const message = await anthropic.messages.create({
-      model: 'claude-3-5-haiku-20241022', // Use faster model for resource enhancement
+      model: 'claude-haiku-4-5-20251001', // Use faster model for resource enhancement
       max_tokens: 1024,
       temperature: 0.5,
       messages: [

@@ -76,7 +76,7 @@ Return JSON array with exactly ${limit} recommendations:
 The score should be 0.0-1.0 representing recommendation confidence.`;
 
     const message = await anthropic.messages.create({
-      model: 'claude-3-5-haiku-20241022', // Use Haiku for cost efficiency
+      model: 'claude-haiku-4-5-20251001', // Use Haiku for cost efficiency
       max_tokens: 2048,
       temperature: 0.7,
       messages: [
