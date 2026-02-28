@@ -22,6 +22,7 @@ import {
   Users,
   X,
   LogOut,
+  Trophy,
 } from 'lucide-react';
 
 interface PathProgress {
@@ -59,6 +60,23 @@ interface PathRecommendation {
   };
 }
 
+interface UserBadge {
+  id: string;
+  user_id: string;
+  path_id: string;
+  badge_name: string;
+  badge_icon: string;
+  badge_color: string;
+  earned_at: string;
+  learning_paths: {
+    id: string;
+    title: string;
+    topic: string;
+    difficulty_level: string | null;
+    category_id: string | null;
+  } | null;
+}
+
 interface GroupRecommendation {
   group: {
     id: string;
@@ -83,6 +101,7 @@ export default function DashboardPage() {
   const [pathRecommendations, setPathRecommendations] = useState<PathRecommendation[]>([]);
   const [groupRecommendations, setGroupRecommendations] = useState<GroupRecommendation[]>([]);
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
+  const [badges, setBadges] = useState<UserBadge[]>([]);
 
   // Redirect to auth if not logged in
   useEffect(() => {
@@ -128,8 +147,21 @@ export default function DashboardPage() {
       }
     };
 
+    const fetchBadges = async () => {
+      try {
+        const response = await fetch(`/api/badges?userId=${userId}`);
+        const result = await response.json();
+        if (result.success) {
+          setBadges(result.data || []);
+        }
+      } catch (error) {
+        console.error('Error fetching badges:', error);
+      }
+    };
+
     fetchUserPaths();
     fetchRecommendations();
+    fetchBadges();
   }, [userId]);
 
   const handleSignOut = async () => {
@@ -331,6 +363,46 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Earned Badges */}
+            {badges.length > 0 && (
+              <div className="mb-8">
+                <div className="flex items-center gap-2 mb-4">
+                  <Trophy className="w-6 h-6 text-yellow-600" />
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    Your Badges
+                  </h2>
+                  <Badge variant="secondary" className="ml-2">{badges.length}</Badge>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {badges.map((badge) => (
+                    <Card
+                      key={badge.id}
+                      className="text-center hover:shadow-lg transition-all hover:-translate-y-1 cursor-pointer"
+                      onClick={() => badge.learning_paths && router.push(`/path/${badge.learning_paths.id}`)}
+                    >
+                      <CardContent className="p-4">
+                        <div
+                          className="w-16 h-16 rounded-full mx-auto mb-3 flex items-center justify-center text-3xl"
+                          style={{ backgroundColor: `${badge.badge_color}20` }}
+                        >
+                          {badge.badge_icon}
+                        </div>
+                        <h3 className="font-semibold text-sm line-clamp-1">{badge.badge_name}</h3>
+                        {badge.learning_paths && (
+                          <p className="text-xs text-gray-500 mt-1 line-clamp-1">
+                            {badge.learning_paths.topic}
+                          </p>
+                        )}
+                        <p className="text-xs text-gray-400 mt-1">
+                          {new Date(badge.earned_at).toLocaleDateString()}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* AI Recommendations */}
             {(pathRecommendations.length > 0 || groupRecommendations.length > 0) && (

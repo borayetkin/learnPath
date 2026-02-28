@@ -452,6 +452,35 @@ export interface Database {
           updated_at?: string;
         };
       };
+      user_badges: {
+        Row: {
+          id: string;
+          user_id: string;
+          path_id: string;
+          badge_name: string;
+          badge_icon: string;
+          badge_color: string;
+          earned_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          path_id: string;
+          badge_name: string;
+          badge_icon?: string;
+          badge_color?: string;
+          earned_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          path_id?: string;
+          badge_name?: string;
+          badge_icon?: string;
+          badge_color?: string;
+          earned_at?: string;
+        };
+      };
       resource_interactions: {
         Row: {
           id: string;

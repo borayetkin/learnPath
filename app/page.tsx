@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import PathGenerationForm from '@/components/PathGenerationForm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Sparkles, BookOpen, TrendingUp, Target, Grid3X3, LogIn, User } from 'lucide-react';
+import { Sparkles, Grid3X3, LogIn, User } from 'lucide-react';
 import { AIPathGenerationResponse } from '@/types';
 
 function HomeContent() {
@@ -115,81 +115,89 @@ function HomeContent() {
             </Card>
           </div>
 
-          {/* Right Column - Features */}
+          {/* Right Column - Path Preview */}
           <div className="space-y-6">
             <div>
-              <h3 className="text-2xl font-bold mb-4">Why LearnPath?</h3>
-              <div className="space-y-4">
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex items-start gap-4">
-                      <div className="p-2 rounded-lg bg-blue-100">
-                        <Target className="w-6 h-6 text-blue-600" />
-                      </div>
-                      <div>
-                        <h4 className="font-semibold mb-1">Personalized Paths</h4>
-                        <p className="text-sm text-gray-600">
-                          AI analyzes your background, goals, and learning style to
-                          create custom learning paths just for you.
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+              <h3 className="text-2xl font-bold mb-2">Your path will look like this</h3>
+              <p className="text-gray-600 text-sm mb-4">
+                AI generates a milestone-based roadmap you can follow step by step
+              </p>
+            </div>
 
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex items-start gap-4">
-                      <div className="p-2 rounded-lg bg-purple-100">
-                        <BookOpen className="w-6 h-6 text-purple-600" />
-                      </div>
-                      <div>
-                        <h4 className="font-semibold mb-1">Curated Resources</h4>
-                        <p className="text-sm text-gray-600">
-                          Get access to high-quality courses, articles, videos, and
-                          exercises from the best platforms.
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+            {/* Sample Milestone Preview */}
+            <div className="relative">
+              {/* Vertical line */}
+              <div className="absolute left-6 top-8 bottom-8 w-0.5 bg-gradient-to-b from-violet-400 via-cyan-400 to-green-400" />
 
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex items-start gap-4">
-                      <div className="p-2 rounded-lg bg-green-100">
-                        <TrendingUp className="w-6 h-6 text-green-600" />
-                      </div>
-                      <div>
-                        <h4 className="font-semibold mb-1">Track Progress</h4>
-                        <p className="text-sm text-gray-600">
-                          Visual progress tracking and interactive learning graphs
-                          keep you motivated and on track.
-                        </p>
-                      </div>
+              <div className="space-y-1">
+                {[
+                  { title: 'Foundations', desc: 'Core concepts & setup', status: 'completed' as const, hours: 4 },
+                  { title: 'Building Blocks', desc: 'Essential skills & patterns', status: 'completed' as const, hours: 6 },
+                  { title: 'Hands-on Practice', desc: 'Guided exercises & projects', status: 'in_progress' as const, hours: 8 },
+                  { title: 'Deep Dive', desc: 'Advanced techniques', status: 'locked' as const, hours: 10 },
+                  { title: 'Capstone Project', desc: 'Put it all together', status: 'locked' as const, hours: 12 },
+                  { title: 'Badge Earned!', desc: 'Path complete - show it off', status: 'badge' as const, hours: 0 },
+                ].map((node, i) => (
+                  <div key={i} className="flex items-start gap-4 relative">
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 z-10 border-2 ${
+                      node.status === 'completed'
+                        ? 'bg-green-100 border-green-500 text-green-700'
+                        : node.status === 'in_progress'
+                        ? 'bg-violet-100 border-violet-500 text-violet-700 ring-4 ring-violet-100'
+                        : node.status === 'badge'
+                        ? 'bg-yellow-100 border-yellow-500 text-yellow-700'
+                        : 'bg-gray-100 border-gray-300 text-gray-400'
+                    }`}>
+                      {node.status === 'completed' ? (
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                      ) : node.status === 'in_progress' ? (
+                        <span className="text-sm font-bold">{i + 1}</span>
+                      ) : node.status === 'badge' ? (
+                        <span className="text-lg">🏆</span>
+                      ) : (
+                        <span className="text-sm font-bold">{i + 1}</span>
+                      )}
                     </div>
-                  </CardContent>
-                </Card>
+                    <div className={`flex-1 p-3 rounded-lg ${
+                      node.status === 'completed'
+                        ? 'bg-green-50 border border-green-200'
+                        : node.status === 'in_progress'
+                        ? 'bg-violet-50 border border-violet-200'
+                        : node.status === 'badge'
+                        ? 'bg-yellow-50 border border-yellow-200'
+                        : 'bg-gray-50 border border-gray-200 opacity-60'
+                    }`}>
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-semibold text-sm">{node.title}</h4>
+                        {node.hours > 0 && (
+                          <span className="text-xs text-gray-500">{node.hours}h</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-600 mt-0.5">{node.desc}</p>
+                      {node.status === 'in_progress' && (
+                        <div className="mt-2">
+                          <div className="w-full bg-violet-200 rounded-full h-1.5">
+                            <div className="bg-violet-600 h-1.5 rounded-full" style={{ width: '45%' }} />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
-            {/* Example Topics */}
+            {/* Popular Topics */}
             <div>
-              <h3 className="text-xl font-semibold mb-3">Popular Topics</h3>
+              <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Popular Topics</h3>
               <div className="flex flex-wrap gap-2">
                 {[
-                  'Web Development',
-                  'Machine Learning',
-                  'Data Science',
-                  'Mobile Development',
-                  'DevOps',
-                  'Cloud Computing',
-                  'Cybersecurity',
-                  'UI/UX Design',
+                  'Guitar', 'Python', 'Photography', 'French',
+                  'Meditation', 'Watercolor', 'Machine Learning', 'UI/UX Design',
                 ].map((topic) => (
                   <span
                     key={topic}
-                    className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-sm cursor-pointer transition-colors"
+                    className="px-3 py-1.5 bg-white border border-gray-200 hover:border-violet-300 hover:bg-violet-50 rounded-full text-sm cursor-pointer transition-colors"
                   >
                     {topic}
                   </span>

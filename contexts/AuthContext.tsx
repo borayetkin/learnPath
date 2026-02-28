@@ -56,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Sync Supabase Auth user to our users table
   const syncUserToDatabase = async (user: User) => {
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('users')
         .upsert({
           id: user.id,

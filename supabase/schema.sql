@@ -796,3 +796,34 @@ CREATE POLICY "Comment authors and moderators can delete comments"
       AND group_members.role IN ('admin', 'moderator')
     )
   );
+
+-- ============================================================================
+-- Badges System
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS user_badges (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+  path_id UUID REFERENCES learning_paths(id) ON DELETE CASCADE NOT NULL,
+  badge_name VARCHAR(200) NOT NULL,
+  badge_icon VARCHAR(50) DEFAULT '🏆',
+  badge_color VARCHAR(50) DEFAULT '#eab308',
+  earned_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(user_id, path_id)
+);
+
+-- Indexes for badges
+CREATE INDEX IF NOT EXISTS idx_user_badges_user ON user_badges(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_badges_path ON user_badges(path_id);
+CREATE INDEX IF NOT EXISTS idx_user_badges_earned ON user_badges(earned_at DESC);
+
+-- RLS for badges
+ALTER TABLE user_badges ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can view badges"
+  ON user_badges FOR SELECT
+  USING (true);
+
+CREATE POLICY "System can insert badges"
+  ON user_badges FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
